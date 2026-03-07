@@ -11,7 +11,7 @@ import (
 )
 
 type JWTClaims struct {
-	UserID int    `json:"user_id"`
+	UserID string `json:"user_id"`
 	Email  string `json:"email"`
 	jwt.RegisteredClaims
 }
@@ -50,6 +50,6 @@ func Protected() fiber.Handler {
 }
 
 // helper ambil userId dari conext
-func GetUserID(c *fiber.Ctx) int {
-	return c.Locals("userID").(int)
+func GetUserID(c *fiber.Ctx) string {
+	return c.Locals("userID").(string)
 }
