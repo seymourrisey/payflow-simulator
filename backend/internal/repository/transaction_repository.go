@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/seymourrisey/payflow-simulator/internal/model"
@@ -75,15 +76,23 @@ func (r *TransactionRepository) ProcessPayment(ctx context.Context, tx *model.Tr
 	return tx, nil
 }
 
-// ProcessTopUp — credit saldo + insert transaction record
-func (r *TransactionRepository) ProcessTopUp(ctx context.Context, walletID string, amount float64, referenceID string) (*model.Transaction, error) {
+// ProcessTopUp — credit saldo + insert ke top_up_requests + transactions (ACID)
+func (r *TransactionRepository) ProcessTopUp(
+	ctx context.Context,
+	walletID string,
+	amount float64,
+	referenceID string,
+	topUpID string,
+	paymentChannel string,
+	expiredAt time.Time,
+) (*model.Transaction, error) {
 	dbTx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin topup: %w", err)
 	}
 	defer dbTx.Rollback(ctx)
 
-	// STEP 1: Tambah saldo
+	// STEP 1: Tambah saldo wallet
 	_, err = dbTx.Exec(ctx, `
 		UPDATE wallets SET balance = balance + $1, updated_at = NOW()
 		WHERE id = $2
@@ -92,9 +101,18 @@ func (r *TransactionRepository) ProcessTopUp(ctx context.Context, walletID strin
 		return nil, fmt.Errorf("credit wallet: %w", err)
 	}
 
-	// STEP 2: Generate custom ID lalu insert transaction record
+	// STEP 2: Insert ke top_up_requests
+	_, err = dbTx.Exec(ctx, `
+		INSERT INTO top_up_requests (id, wallet_id, amount, payment_channel, status, expired_at)
+		VALUES ($1, $2, $3, $4, 'SUCCESS', $5)
+	`, topUpID, walletID, amount, paymentChannel, expiredAt)
+	if err != nil {
+		return nil, fmt.Errorf("insert top_up_request: %w", err)
+	}
+
+	// STEP 3: Insert ke transactions
 	tx := &model.Transaction{}
-	tx.ID = idgen.NewTransactionID() // TXN-20260307-A1B2C3D4
+	tx.ID = idgen.NewTransactionID()
 	err = dbTx.QueryRow(ctx, `
 		INSERT INTO transactions (id, reference_id, wallet_id, type, amount, fee, status)
 		VALUES ($1, $2, $3, 'TOPUP', $4, 0, 'SUCCESS')
@@ -105,7 +123,7 @@ func (r *TransactionRepository) ProcessTopUp(ctx context.Context, walletID strin
 		return nil, fmt.Errorf("insert topup transaction: %w", err)
 	}
 
-	// STEP 3: Commit
+	// STEP 4: Commit — semua atau tidak sama sekali
 	if err = dbTx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit topup: %w", err)
 	}
