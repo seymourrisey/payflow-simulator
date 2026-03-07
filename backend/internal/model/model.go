@@ -5,11 +5,11 @@ import (
 )
 
 type User struct {
-	ID        int       `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"` // never expose in json
-	CreatedAt time.Time `json:"created_at"`
+	ID           int       `json:"id"`
+	FullName     string    `json:"name"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"` // never expose in json
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Wallet struct {
