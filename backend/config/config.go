@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/joho/godotenv"
@@ -20,9 +21,16 @@ type Config struct {
 
 var App *Config
 
-func LoadConfig() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+func Load() {
+	// Cari .env file di parent directories
+	envPath := findEnvFile()
+	if envPath != "" {
+		if err := godotenv.Load(envPath); err != nil {
+			log.Printf("Error loading .env file: %v", err)
+			log.Fatal("Failed to load .env file")
+		}
+	} else {
+		log.Println("Warning: .env file not found, using environment variables")
 	}
 
 	App = &Config{
@@ -36,6 +44,28 @@ func LoadConfig() {
 	}
 
 	log.Printf("Config loaded | ENV: %s | PORT: %s", App.AppEnv, App.AppPort)
+}
+
+func findEnvFile() string {
+	// Mulai dari working directory, cari .env ke atas
+	dir, _ := os.Getwd()
+
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			log.Printf("Found .env at: %s", envPath)
+			return envPath
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Sudah sampai root
+			break
+		}
+		dir = parent
+	}
+
+	return ""
 }
 
 func getEnv(key, fallback string) string {

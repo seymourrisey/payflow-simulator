@@ -23,7 +23,7 @@ func ConnectDB() {
 	poolConfig.MaxConns = 20
 	poolConfig.MinConns = 5
 	poolConfig.MaxConnLifetime = 30 * time.Minute
-	poolConfig.MaxConnIdleTime = 5 & time.Minute
+	poolConfig.MaxConnIdleTime = 5 * time.Minute
 	poolConfig.HealthCheckPeriod = 1 * time.Minute
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
