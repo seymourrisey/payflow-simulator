@@ -5,26 +5,26 @@ import (
 )
 
 type User struct {
-	ID           int       `json:"id"`
-	FullName     string    `json:"name"`
+	ID           string    `json:"id"` // USR-A1B2C3D4E5F6
+	FullName     string    `json:"full_name"`
 	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // never expose in json
+	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Wallet struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
+	ID        string    `json:"id"` // WLT-A1B2C3D4E5F6
+	UserID    string    `json:"user_id"`
 	Balance   float64   `json:"balance"`
 	Currency  string    `json:"currency"`
-	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Merchant struct {
-	ID           int       `json:"id"`
+	ID           string    `json:"id"` // MRC-A1B2C3D4E5F6
 	MerchantName string    `json:"merchant_name"`
 	WebhookURL   string    `json:"webhook_url,omitempty"`
-	APIKey       string    `json:"-"` // sensitive
+	APIKey       string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -43,11 +43,11 @@ const (
 )
 
 type Transaction struct {
-	ID                 int               `json:"id"`
+	ID                 string            `json:"id"` // TXN-20260307-A1B2C3D4
 	ReferenceID        string            `json:"reference_id"`
-	WalletID           int               `json:"wallet_id"`
-	SenderWalletID     *int              `json:"sender_wallet_id,omitempty"`
-	ReceiverMerchantID *int              `json:"receiver_merchant_id,omitempty"`
+	WalletID           string            `json:"wallet_id"`
+	SenderWalletID     *string           `json:"sender_wallet_id,omitempty"`
+	ReceiverMerchantID *string           `json:"receiver_merchant_id,omitempty"`
 	Type               TransactionType   `json:"type"`
 	Amount             float64           `json:"amount"`
 	Fee                float64           `json:"fee"`
@@ -58,8 +58,8 @@ type Transaction struct {
 }
 
 type TopUpRequest struct {
-	ID             int               `json:"id"`
-	WalletID       int               `json:"wallet_id"`
+	ID             string            `json:"id"` // TUP-20260307-A1B2C3D4
+	WalletID       string            `json:"wallet_id"`
 	Amount         float64           `json:"amount"`
 	PaymentChannel string            `json:"payment_channel"`
 	Status         TransactionStatus `json:"status"`
@@ -68,9 +68,9 @@ type TopUpRequest struct {
 }
 
 type WebhookLog struct {
-	ID             int       `json:"id"`
-	MerchantID     int       `json:"merchant_id"`
-	TransactionID  int       `json:"transaction_id"`
+	ID             string    `json:"id"` // WHL-A1B2C3D4E5F6
+	MerchantID     string    `json:"merchant_id"`
+	TransactionID  string    `json:"transaction_id"`
 	Payload        any       `json:"payload"`
 	ResponseStatus *int      `json:"response_status,omitempty"`
 	RetryCount     int       `json:"retry_count"`
