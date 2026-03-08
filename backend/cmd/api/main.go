@@ -89,6 +89,10 @@ func main() {
 	webhooks.Get("/stats", webhookHandler.GetStats)
 	webhooks.Get("/merchants", webhookHandler.GetMerchants)
 
+	// ── Built-in Webhook Receiver (PUBLIC - tidak perlu JWT) ──
+	// Merchant webhook URL diarahkan ke sini untuk local testing
+	app.Post("/webhook/receive", webhookHandler.Receive)
+
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok", "app": "payflow-simulator"})
@@ -96,7 +100,7 @@ func main() {
 
 	// 8. Start server (graceful shutdown)
 	go func() {
-		log.Printf("🚀 PAYFLOW SIMULATOR running on :%s [%s]", config.App.AppPort, config.App.AppEnv)
+		log.Printf("(˶˃ᆺ˂˶) PAYFLOW SIMULATOR running on :%s [%s]", config.App.AppPort, config.App.AppEnv)
 		if err := app.Listen(":" + config.App.AppPort); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}

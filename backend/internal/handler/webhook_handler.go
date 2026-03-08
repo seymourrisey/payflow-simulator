@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+	"log"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -50,4 +52,29 @@ func (h *WebhookHandler) GetMerchants(c *fiber.Ctx) error {
 		return response.InternalError(c, err)
 	}
 	return response.OK(c, "Merchants retrieved", merchants)
+}
+
+// POST /webhook/receive — built-in receiver untuk local testing
+// Merchant webhook URL diarahkan ke sini
+func (h *WebhookHandler) Receive(c *fiber.Ctx) error {
+	// Log semua headers
+	log.Printf(" ◝(ᵔᗜᵔ)◜ Webhook received!◝(ᵔᗜᵔ)◜")
+	log.Printf("   Signature : %s", c.Get("X-Payflow-Signature"))
+	log.Printf("   Timestamp : %s", c.Get("X-Payflow-Timestamp"))
+	log.Printf("   User-Agent: %s", c.Get("User-Agent"))
+
+	// Parse body
+	var payload map[string]any
+	if err := json.Unmarshal(c.Body(), &payload); err != nil {
+		log.Printf("   Body (raw): %s", string(c.Body()))
+	} else {
+		prettyJSON, _ := json.MarshalIndent(payload, "   ", "  ")
+		log.Printf("   Payload:\n   %s", string(prettyJSON))
+	}
+
+	// Return 200 agar webhook dianggap delivered
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"received": true,
+		"message":  "Webhook received by PayFlow local receiver",
+	})
 }

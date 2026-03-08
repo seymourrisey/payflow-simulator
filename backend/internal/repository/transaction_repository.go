@@ -55,24 +55,27 @@ func (r *TransactionRepository) ProcessPayment(ctx context.Context, tx *model.Tr
 		return nil, fmt.Errorf("debit wallet: %w", err)
 	}
 
-	// STEP 4: Encode metadata ke []byte untuk pgx JSONB
-	var metadataBytes []byte
+	// STEP 4: Marshal metadata ke JSON string
+	// Dengan SimpleProtocol, WAJIB pakai ::jsonb cast di SQL
+	// karena PostgreSQL tidak bisa auto-detect tipe dari parameter text
+	metadataStr := "{}" // default empty JSON object
 	if tx.Metadata != nil {
-		metadataBytes, err = json.Marshal(tx.Metadata)
+		metadataBytes, err := json.Marshal(tx.Metadata)
 		if err != nil {
 			return nil, fmt.Errorf("marshal metadata: %w", err)
 		}
+		metadataStr = string(metadataBytes)
 	}
 
 	// STEP 5: Generate custom ID lalu insert transaction record
-	tx.ID = idgen.NewTransactionID() // TXN-20260307-A1B2C3D4
+	tx.ID = idgen.NewTransactionID()
 	err = dbTx.QueryRow(ctx, `
-			INSERT INTO transactions
-				(id, reference_id, wallet_id, receiver_merchant_id, type, amount, fee, status, metadata)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, 'SUCCESS', $8)
-			RETURNING created_at
-		`, tx.ID, tx.ReferenceID, tx.WalletID, tx.ReceiverMerchantID,
-		tx.Type, tx.Amount, tx.Fee, metadataBytes).
+		INSERT INTO transactions
+			(id, reference_id, wallet_id, receiver_merchant_id, type, amount, fee, status, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'SUCCESS', $8::jsonb)
+		RETURNING created_at
+	`, tx.ID, tx.ReferenceID, tx.WalletID, tx.ReceiverMerchantID,
+		tx.Type, tx.Amount, tx.Fee, metadataStr).
 		Scan(&tx.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert transaction: %w", err)
