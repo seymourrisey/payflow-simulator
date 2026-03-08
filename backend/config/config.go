@@ -17,6 +17,7 @@ type Config struct {
 	JWTExpiry       int
 	WebhookTimeout  int
 	WebhookMaxRetry int
+	AllowOrigins    string
 }
 
 var App *Config
@@ -41,6 +42,7 @@ func Load() {
 		JWTExpiry:       getEnvInt("JWT_EXPIRY_HOURS", 24),
 		WebhookTimeout:  getEnvInt("WEBHOOK_TIMEOUT_SECONDS", 10),
 		WebhookMaxRetry: getEnvInt("WEBHOOK_MAX_RETRIES", 3),
+		AllowOrigins:    getEnv("ALLOW_ORIGINS", "http://localhost:5173"),
 	}
 
 	log.Printf("Config loaded | ENV: %s | PORT: %s", App.AppEnv, App.AppPort)
