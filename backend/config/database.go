@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,9 +20,15 @@ func ConnectDB() {
 		log.Fatalf("Failed to parse DATABASE_URL: %v", err)
 	}
 
-	//connection pool settings
-	poolConfig.MaxConns = 20
-	poolConfig.MinConns = 5
+	// ── FIX: Disable prepared statement caching ──────────────
+	// pgx v5 default pakai extended protocol (prepared statements per koneksi)
+	// Ketika koneksi di-reuse dari pool → duplicate statement error (42P05)
+	// SimpleProtocol = query langsung tanpa prepared statement cache
+	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+
+	// Connection pool settings
+	poolConfig.MaxConns = 10
+	poolConfig.MinConns = 2
 	poolConfig.MaxConnLifetime = 30 * time.Minute
 	poolConfig.MaxConnIdleTime = 5 * time.Minute
 	poolConfig.HealthCheckPeriod = 1 * time.Minute
@@ -31,14 +38,12 @@ func ConnectDB() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	//verify connection
 	if err := pool.Ping(ctx); err != nil {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 
 	DB = pool
-	log.Println("Database connected successfully!! (supabase/postgresql)")
-
+	log.Println("✅ Database connected (supabase/postgresql - IPv6 + SimpleProtocol)")
 }
 
 func CloseDB() {

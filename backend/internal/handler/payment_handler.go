@@ -53,7 +53,15 @@ func (h *PayHandler) GenerateQR(c *fiber.Ctx) error {
 
 	var req dto.GenerateQRRequest
 	if err := c.BodyParser(&req); err != nil {
-		return response.BadRequest(c, "invalid request body")
+		return response.BadRequest(c, "invalid request body: "+err.Error())
+	}
+
+	// Validasi manual field wajib
+	if req.MerchantID == "" {
+		return response.BadRequest(c, "merchant_id is required (string, e.g: MRC-TOKOPEDIA0001)")
+	}
+	if req.Amount <= 0 {
+		return response.BadRequest(c, "amount must be greater than 0")
 	}
 
 	result, err := h.paymentService.GenerateQR(c.Context(), userID, &req)
@@ -67,19 +75,27 @@ func (h *PayHandler) GenerateQR(c *fiber.Ctx) error {
 // POST /api/payment/pay — proses pembayaran
 func (h *PayHandler) Pay(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
-
-	// Ambil idempotency key dari header (mencegah double payment)
 	idempotencyKey := c.Get("X-Idempotency-Key")
 
 	var req dto.PaymentRequest
 	if err := c.BodyParser(&req); err != nil {
-		return response.BadRequest(c, "invalid request body")
+		return response.BadRequest(c, "invalid request body: "+err.Error())
+	}
+
+	// Validasi manual field wajib
+	if req.MerchantID == "" {
+		return response.BadRequest(c, "merchant_id is required (string, e.g: MRC-TOKOPEDIA0001)")
+	}
+	if req.Amount <= 0 {
+		return response.BadRequest(c, "amount must be greater than 0")
 	}
 
 	result, err := h.paymentService.Pay(c.Context(), userID, &req, idempotencyKey)
 	if err != nil {
-		if err.Error()[:22] == "insufficient balance: " {
-			return response.BadRequest(c, err.Error())
+		// Cek insufficient balance dengan aman (tanpa risiko panic)
+		errMsg := err.Error()
+		if len(errMsg) >= 22 && errMsg[:22] == "insufficient balance: " {
+			return response.BadRequest(c, errMsg)
 		}
 		return response.InternalError(c, err)
 	}

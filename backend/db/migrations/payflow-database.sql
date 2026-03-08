@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
     payload         JSONB          NOT NULL,
     response_status INT,
     retry_count     INT            DEFAULT 0,
+    is_delivered    BOOLEAN        DEFAULT FALSE,
     sent_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

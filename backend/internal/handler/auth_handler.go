@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/seymourrisey/payflow-simulator/internal/dto"
+	"github.com/seymourrisey/payflow-simulator/internal/middleware"
 	"github.com/seymourrisey/payflow-simulator/internal/service"
 	"github.com/seymourrisey/payflow-simulator/pkg/response"
 )
@@ -46,4 +47,17 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	return response.OK(c, "Login successful", result)
+}
+
+// POST /api/auth/logout — JWT stateless: token dihapus di sisi client
+// Backend hanya konfirmasi logout berhasil + return info user yang logout
+func (h *AuthHandler) Logout(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	email := c.Locals("email").(string)
+
+	return response.OK(c, "Logout successful", fiber.Map{
+		"user_id": userID,
+		"email":   email,
+		"message": "Token has been invalidated on client side",
+	})
 }

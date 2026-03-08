@@ -62,13 +62,16 @@ func main() {
 	// 7. Routes
 	api := app.Group("/api")
 
-	// Public
+	// Public routes
 	auth := api.Group("/auth")
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/login", authHandler.Login)
 
-	// Protected (JWT required)
+	// Protected routes (JWT required)
 	protected := api.Group("/", middleware.Protected())
+
+	// Logout — protected karena butuh verifikasi token dulu
+	protected.Post("/auth/logout", authHandler.Logout)
 
 	wallet := protected.Group("/wallet")
 	wallet.Get("/", payHandler.GetWallet)

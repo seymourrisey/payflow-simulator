@@ -64,15 +64,16 @@ func (r *TransactionRepository) ProcessPayment(ctx context.Context, tx *model.Tr
 		}
 	}
 
-	// STEP 5: Insert transaction record
+	// STEP 5: Generate custom ID lalu insert transaction record
+	tx.ID = idgen.NewTransactionID() // TXN-20260307-A1B2C3D4
 	err = dbTx.QueryRow(ctx, `
-		INSERT INTO transactions
-			(reference_id, wallet_id, receiver_merchant_id, type, amount, fee, status, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, 'SUCCESS', $7)
-		RETURNING id, created_at
-	`, tx.ReferenceID, tx.WalletID, tx.ReceiverMerchantID,
+			INSERT INTO transactions
+				(id, reference_id, wallet_id, receiver_merchant_id, type, amount, fee, status, metadata)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, 'SUCCESS', $8)
+			RETURNING created_at
+		`, tx.ID, tx.ReferenceID, tx.WalletID, tx.ReceiverMerchantID,
 		tx.Type, tx.Amount, tx.Fee, metadataBytes).
-		Scan(&tx.ID, &tx.CreatedAt)
+		Scan(&tx.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert transaction: %w", err)
 	}
