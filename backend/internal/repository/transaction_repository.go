@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -18,7 +19,8 @@ func NewTransactionRepository(db *pgxpool.Pool) *TransactionRepository {
 	return &TransactionRepository{db: db}
 }
 
-// ProcessPayment — ACID transaction: debit saldo + insert record dalam 1 DB transaction
+// ProcessPayment — inti dari ACID transaction
+// Debit saldo + insert transaction record dalam 1 DB transaction
 func (r *TransactionRepository) ProcessPayment(ctx context.Context, tx *model.Transaction) (*model.Transaction, error) {
 	dbTx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -27,6 +29,7 @@ func (r *TransactionRepository) ProcessPayment(ctx context.Context, tx *model.Tr
 	defer dbTx.Rollback(ctx)
 
 	// STEP 1: Lock wallet row (SELECT FOR UPDATE)
+	// Mencegah race condition jika ada 2 request bayar bersamaan
 	var currentBalance float64
 	err = dbTx.QueryRow(ctx, `
 		SELECT balance FROM wallets
@@ -52,22 +55,29 @@ func (r *TransactionRepository) ProcessPayment(ctx context.Context, tx *model.Tr
 		return nil, fmt.Errorf("debit wallet: %w", err)
 	}
 
-	// STEP 4: Generate custom ID lalu insert transaction record
-	tx.ID = idgen.NewTransactionID() // TXN-20260307-A1B2C3D4
+	// STEP 4: Encode metadata ke []byte untuk pgx JSONB
+	var metadataBytes []byte
+	if tx.Metadata != nil {
+		metadataBytes, err = json.Marshal(tx.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("marshal metadata: %w", err)
+		}
+	}
 
+	// STEP 5: Insert transaction record
 	err = dbTx.QueryRow(ctx, `
 		INSERT INTO transactions
-			(id, reference_id, wallet_id, receiver_merchant_id, type, amount, fee, status, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 'SUCCESS', $8)
-		RETURNING created_at
-	`, tx.ID, tx.ReferenceID, tx.WalletID, tx.ReceiverMerchantID,
-		tx.Type, tx.Amount, tx.Fee, tx.Metadata).
-		Scan(&tx.CreatedAt)
+			(reference_id, wallet_id, receiver_merchant_id, type, amount, fee, status, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, 'SUCCESS', $7)
+		RETURNING id, created_at
+	`, tx.ReferenceID, tx.WalletID, tx.ReceiverMerchantID,
+		tx.Type, tx.Amount, tx.Fee, metadataBytes).
+		Scan(&tx.ID, &tx.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert transaction: %w", err)
 	}
 
-	// STEP 5: Commit
+	// STEP 6: Commit
 	if err = dbTx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
@@ -123,11 +133,9 @@ func (r *TransactionRepository) ProcessTopUp(
 		return nil, fmt.Errorf("insert topup transaction: %w", err)
 	}
 
-	// STEP 4: Commit — semua atau tidak sama sekali
 	if err = dbTx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit topup: %w", err)
 	}
-
 	return tx, nil
 }
 
@@ -148,22 +156,18 @@ func (r *TransactionRepository) FindByWalletID(ctx context.Context, walletID str
 	var txs []model.Transaction
 	for rows.Next() {
 		var tx model.Transaction
-		err := rows.Scan(&tx.ID, &tx.ReferenceID, &tx.WalletID, &tx.ReceiverMerchantID,
-			&tx.Type, &tx.Amount, &tx.Fee, &tx.Status, &tx.CreatedAt)
-		if err != nil {
+		if err := rows.Scan(&tx.ID, &tx.ReferenceID, &tx.WalletID, &tx.ReceiverMerchantID,
+			&tx.Type, &tx.Amount, &tx.Fee, &tx.Status, &tx.CreatedAt); err != nil {
 			return nil, 0, err
 		}
 		txs = append(txs, tx)
 	}
 
-	// Count total untuk pagination
 	var total int
 	r.db.QueryRow(ctx, `SELECT COUNT(*) FROM transactions WHERE wallet_id = $1`, walletID).Scan(&total)
-
 	return txs, total, nil
 }
 
-// FindByReferenceID — cari 1 transaksi berdasarkan nomor referensi
 func (r *TransactionRepository) FindByReferenceID(ctx context.Context, refID string) (*model.Transaction, error) {
 	tx := &model.Transaction{}
 	err := r.db.QueryRow(ctx, `

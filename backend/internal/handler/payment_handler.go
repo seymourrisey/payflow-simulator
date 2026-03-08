@@ -10,17 +10,6 @@ import (
 	"github.com/seymourrisey/payflow-simulator/pkg/response"
 )
 
-type PaymentHandler struct {
-	paymentService *service.PaymentService
-	walletRepo     interface {
-		FindByUserID(ctx interface{ Done() <-chan struct{} }, userID string) (interface{}, error)
-	}
-}
-
-type WalletHandler struct {
-	walletService *service.WalletService
-}
-
 type PayHandler struct {
 	paymentService *service.PaymentService
 }

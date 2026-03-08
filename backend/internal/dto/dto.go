@@ -87,3 +87,22 @@ type TransactionListResponse struct {
 	Data  []TransactionItem `json:"data"`
 	Total int               `json:"total"`
 }
+
+type WebhookLogItem struct {
+	ID             string  `json:"id"`
+	MerchantID     string  `json:"merchant_id"`
+	MerchantName   string  `json:"merchant_name"`
+	TransactionID  string  `json:"transaction_id"`
+	Event          string  `json:"event"`
+	Payload        *string `json:"payload,omitempty"`
+	ResponseStatus *int    `json:"response_status,omitempty"`
+	ResponseBody   *string `json:"response_body,omitempty"`
+	RetryCount     int     `json:"retry_count"`
+	IsDelivered    bool    `json:"is_delivered"`
+	SentAt         string  `json:"sent_at"`
+}
+
+type WebhookLogsResponse struct {
+	Data  []WebhookLogItem `json:"data"`
+	Total int              `json:"total"`
+}

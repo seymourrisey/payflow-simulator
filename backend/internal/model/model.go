@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -68,11 +69,27 @@ type TopUpRequest struct {
 }
 
 type WebhookLog struct {
-	ID             string    `json:"id"` // WHL-A1B2C3D4E5F6
-	MerchantID     string    `json:"merchant_id"`
-	TransactionID  string    `json:"transaction_id"`
-	Payload        any       `json:"payload"`
-	ResponseStatus *int      `json:"response_status,omitempty"`
-	RetryCount     int       `json:"retry_count"`
-	SentAt         time.Time `json:"sent_at"`
+	ID             string          `json:"id"`
+	MerchantID     string          `json:"merchant_id"`
+	TransactionID  string          `json:"transaction_id"`
+	Event          string          `json:"event"`
+	Payload        json.RawMessage `json:"payload"`
+	ResponseStatus *int            `json:"response_status,omitempty"`
+	ResponseBody   *string         `json:"response_body,omitempty"`
+	RetryCount     int             `json:"retry_count"`
+	IsDelivered    bool            `json:"is_delivered"`
+	SentAt         time.Time       `json:"sent_at"`
+}
+
+type WebhookLogWithMerchant struct {
+	WebhookLog
+	MerchantName string `json:"merchant_name"`
+}
+
+type WebhookStats struct {
+	Total       int     `json:"total"`
+	Delivered   int     `json:"delivered"`
+	Failed      int     `json:"failed"`
+	LastHour    int     `json:"last_hour"`
+	SuccessRate float64 `json:"success_rate"`
 }

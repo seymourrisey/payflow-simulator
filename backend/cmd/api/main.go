@@ -16,6 +16,7 @@ import (
 	"github.com/seymourrisey/payflow-simulator/internal/middleware"
 	"github.com/seymourrisey/payflow-simulator/internal/repository"
 	"github.com/seymourrisey/payflow-simulator/internal/service"
+	"github.com/seymourrisey/payflow-simulator/pkg/webhook"
 )
 
 func main() {
@@ -24,24 +25,30 @@ func main() {
 	config.ConnectDB()
 	defer config.CloseDB()
 
-	// 2. Init dependencies (manual DI)
+	// 2. Init repositories
 	authRepo := repository.NewAuthRepository(config.DB)
 	walletRepo := repository.NewWalletRepository(config.DB)
 	txRepo := repository.NewTransactionRepository(config.DB)
+	webhookRepo := repository.NewWebhookRepository(config.DB)
 
+	// 3. Init services (webhook dulu karena dibutuhkan paymentService)
+	dispatcher := webhook.NewDispatcher()
+	webhookService := service.NewWebhookService(webhookRepo, dispatcher)
 	authService := service.NewAuthService(authRepo)
-	paymentService := service.NewPaymentService(txRepo, walletRepo)
+	paymentService := service.NewPaymentService(txRepo, walletRepo, webhookService)
 
+	// 4. Init handlers
 	authHandler := handler.NewAuthHandler(authService)
 	payHandler := handler.NewPayHandler(paymentService)
+	webhookHandler := handler.NewWebhookHandler(webhookService)
 
-	// 3. Setup Fiber
+	// 5. Setup Fiber
 	app := fiber.New(fiber.Config{
 		AppName:      "payflow-simulator v1.0",
 		ErrorHandler: customErrorHandler,
 	})
 
-	// 4. Global middlewares
+	// 6. Global middlewares
 	app.Use(recover.New())
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${method} ${path} → ${status} (${latency})\n",
@@ -52,15 +59,15 @@ func main() {
 		AllowHeaders: "Origin, Content-Type, Authorization, X-Idempotency-Key",
 	}))
 
-	// 5. Routes
+	// 7. Routes
 	api := app.Group("/api")
 
-	// Public routes
+	// Public
 	auth := api.Group("/auth")
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/login", authHandler.Login)
 
-	// Protected routes (JWT required)
+	// Protected (JWT required)
 	protected := api.Group("/", middleware.Protected())
 
 	wallet := protected.Group("/wallet")
@@ -73,17 +80,20 @@ func main() {
 
 	protected.Get("/transactions", payHandler.GetHistory)
 
+	// Webhook panel routes
+	webhooks := protected.Group("/webhooks")
+	webhooks.Get("/", webhookHandler.GetLogs)
+	webhooks.Get("/stats", webhookHandler.GetStats)
+	webhooks.Get("/merchants", webhookHandler.GetMerchants)
+
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status": "ok",
-			"app":    "payflow-simulator",
-		})
+		return c.JSON(fiber.Map{"status": "ok", "app": "payflow-simulator"})
 	})
 
-	// 6. Start server (graceful shutdown)
+	// 8. Start server (graceful shutdown)
 	go func() {
-		log.Printf(" PAYFLOW SIMULATOR running on :%s [%s]", config.App.AppPort, config.App.AppEnv)
+		log.Printf("🚀 PAYFLOW SIMULATOR running on :%s [%s]", config.App.AppPort, config.App.AppEnv)
 		if err := app.Listen(":" + config.App.AppPort); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}

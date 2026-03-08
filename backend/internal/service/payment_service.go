@@ -14,25 +14,33 @@ import (
 )
 
 const (
-	PaymentFeeRate  = 0.007 // 0.7% fee per transaksi (simulasi MDR)
-	QRExpiryMinutes = 15    // QR code expired dalam 15 menit
+	PaymentFeeRate  = 0.007 // 0.7% MDR fee
+	QRExpiryMinutes = 15    // QR expired dalam 15 menit
 )
 
 type PaymentService struct {
-	txRepo     *repository.TransactionRepository
-	walletRepo *repository.WalletRepository
+	txRepo         *repository.TransactionRepository
+	walletRepo     *repository.WalletRepository
+	webhookService *WebhookService
 }
 
-func NewPaymentService(txRepo *repository.TransactionRepository, walletRepo *repository.WalletRepository) *PaymentService {
-	return &PaymentService{txRepo: txRepo, walletRepo: walletRepo}
+func NewPaymentService(
+	txRepo *repository.TransactionRepository,
+	walletRepo *repository.WalletRepository,
+	webhookService *WebhookService,
+) *PaymentService {
+	return &PaymentService{
+		txRepo:         txRepo,
+		walletRepo:     walletRepo,
+		webhookService: webhookService,
+	}
 }
 
-// GenerateQR — buat QR payload untuk merchant
+// GenerateQR — buat QR payload, tidak menyentuh DB
 func (s *PaymentService) GenerateQR(ctx context.Context, userID string, req *dto.GenerateQRRequest) (*dto.GenerateQRResponse, error) {
 	referenceID := fmt.Sprintf("PAY-%s", uuid.New().String())
 	expiredAt := time.Now().Add(QRExpiryMinutes * time.Minute)
 
-	// QR payload berisi info yang cukup untuk memproses payment
 	qrPayload := map[string]any{
 		"reference_id": referenceID,
 		"merchant_id":  req.MerchantID,
@@ -53,10 +61,9 @@ func (s *PaymentService) GenerateQR(ctx context.Context, userID string, req *dto
 	}, nil
 }
 
-// Pay — proses pembayaran dari QR scan
-// referenceID dipakai sebagai idempotency key — request duplikat tidak akan diproses 2x
+// Pay — proses pembayaran ACID + dispatch webhook setelahnya
 func (s *PaymentService) Pay(ctx context.Context, userID string, req *dto.PaymentRequest, idempotencyKey string) (*dto.PaymentResponse, error) {
-	// Idempotency check: cek apakah reference ini sudah diproses
+	// Idempotency check
 	if idempotencyKey != "" {
 		existing, _ := s.txRepo.FindByReferenceID(ctx, idempotencyKey)
 		if existing != nil {
@@ -69,13 +76,11 @@ func (s *PaymentService) Pay(ctx context.Context, userID string, req *dto.Paymen
 		}
 	}
 
-	// Ambil wallet user
 	wallet, err := s.walletRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("wallet not found: %w", err)
 	}
 
-	// Hitung fee
 	fee := req.Amount * PaymentFeeRate
 
 	referenceID := idempotencyKey
@@ -91,15 +96,24 @@ func (s *PaymentService) Pay(ctx context.Context, userID string, req *dto.Paymen
 		Type:               model.TxTypePayment,
 		Amount:             req.Amount,
 		Fee:                fee,
-		Metadata: map[string]any{
-			"description": req.Description,
-		},
+		Metadata:           map[string]any{"description": req.Description},
 	}
 
-	// Proses ACID transaction (debit saldo + insert record)
 	processed, err := s.txRepo.ProcessPayment(ctx, tx)
 	if err != nil {
 		return nil, err
+	}
+
+	// Dispatch webhook ke merchant (non-blocking goroutine)
+	if s.webhookService != nil {
+		s.webhookService.DispatchPaymentWebhook(
+			processed.ID,
+			merchantID,
+			processed.ReferenceID,
+			processed.Amount,
+			processed.Fee,
+			string(processed.Status),
+		)
 	}
 
 	return &dto.PaymentResponse{
@@ -110,18 +124,17 @@ func (s *PaymentService) Pay(ctx context.Context, userID string, req *dto.Paymen
 	}, nil
 }
 
-// TopUp — simulasi top up saldo
+// TopUp — credit saldo + insert top_up_requests + transactions
 func (s *PaymentService) TopUp(ctx context.Context, userID string, req *dto.TopUpRequest) (*dto.TopUpResponse, error) {
 	wallet, err := s.walletRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("wallet not found: %w", err)
 	}
 
-	topUpID := idgen.NewTopUpID()
+	topUpID := idgen.NewTopUpID() // TUP-20260307-A1B2C3D4
 	referenceID := fmt.Sprintf("TUP-%s", uuid.New().String())
 	expiredAt := time.Now().Add(24 * time.Hour)
 
-	// Langsung SUCCESS (simulasi — real-world: tunggu konfirmasi bank/VA)
 	_, err = s.txRepo.ProcessTopUp(
 		ctx,
 		wallet.ID,
@@ -136,7 +149,7 @@ func (s *PaymentService) TopUp(ctx context.Context, userID string, req *dto.TopU
 	}
 
 	return &dto.TopUpResponse{
-		TopUpID:        topUpID, // ← fix: pakai topUpID, bukan wallet.ID
+		TopUpID:        topUpID, // fix: pakai topUpID bukan wallet.ID
 		Amount:         req.Amount,
 		PaymentChannel: req.PaymentChannel,
 		Status:         "SUCCESS",
