@@ -17,14 +17,14 @@ type AuthResponse struct {
 }
 
 type UserProfile struct {
-	ID       int    `json:"id"`
+	ID       string `json:"id"`
 	FullName string `json:"full_name"`
 	Email    string `json:"email"`
 }
 
 // wallet
 type WalletResponse struct {
-	ID       int     `json:"id"`
+	ID       string  `json:"id"`
 	Balance  float64 `json:"balance"`
 	Currency string  `json:"currency"`
 }
@@ -36,7 +36,7 @@ type TopUpRequest struct {
 }
 
 type TopUpResponse struct {
-	TopUpID        int     `json:"top_up_id"`
+	TopUpID        string  `json:"top_up_id"`
 	Amount         float64 `json:"amount"`
 	PaymentChannel string  `json:"payment_channel"`
 	Status         string  `json:"status"`
@@ -45,7 +45,7 @@ type TopUpResponse struct {
 
 // payment
 type PaymentRequest struct {
-	MerchantID  int     `json:"merchant_id"  validate:"required"`
+	MerchantID  string  `json:"merchant_id"  validate:"required"`
 	Amount      float64 `json:"amount"       validate:"required,gt=0"`
 	Description string  `json:"description"`
 	// IdempotencyKey dikirim via header X-Idempotency-Key
@@ -61,7 +61,7 @@ type PaymentResponse struct {
 
 // QR generate
 type GenerateQRRequest struct {
-	MerchantID  int     `json:"merchant_id"  validate:"required"`
+	MerchantID  string  `json:"merchant_id"  validate:"required"`
 	Amount      float64 `json:"amount"       validate:"required,gt=0"`
 	Description string  `json:"description"`
 }
