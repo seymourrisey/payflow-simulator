@@ -36,4 +36,6 @@ A full-stack payment flow simulator built to demonstrate how a digital wallet an
 ---
 
 ### Demo deploy 
-back4app & vercel
+back4app (backend)
+vercel (frontend)
+supabase (database)
