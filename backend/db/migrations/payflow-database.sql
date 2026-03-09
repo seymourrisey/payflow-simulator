@@ -62,8 +62,10 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
     id              VARCHAR(20)    PRIMARY KEY,       -- WHL-A1B2C3D4E5F6
     merchant_id     VARCHAR(20) REFERENCES merchants(id),
     transaction_id  VARCHAR(25) REFERENCES transactions(id),
+    event           VARCHAR(50)    NOT NULL,
     payload         JSONB          NOT NULL,
-    response_status INT,
+    response_status INT,                              -- HTTP status dari merchant endpoint
+    response_body   TEXT,
     retry_count     INT            DEFAULT 0,
     is_delivered    BOOLEAN        DEFAULT FALSE,
     sent_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -77,7 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_wallets_user_id           ON wallets(user_id);
 
 -- ── Seed data: dummy merchants ────────────────────────────────
 INSERT INTO merchants (id, merchant_name, api_key, webhook_url) VALUES
-    ('MRC-TOKOPEDIA0001', 'Tokopedia Simulator', 'tok-api-key-001', 'https://webhook.site/tokopedia'),
-    ('MRC-GOJEK0000002', 'Gojek Simulator',     'goj-api-key-002', 'https://webhook.site/gojek'),
-    ('MRC-PLN00000003', 'PLN Simulator',        'pln-api-key-003', 'https://webhook.site/pln')
+    ('MRC-TOKOPEDIA0001', 'Tokopedia Simulator', 'tok-api-key-001', 'http://localhost:8080/webhook/receive'),
+    ('MRC-GOJEK0000002', 'Gojek Simulator',     'goj-api-key-002', 'http://localhost:8080/webhook/receive'),
+    ('MRC-PLN00000003', 'PLN Simulator',        'pln-api-key-003', 'http://localhost:8080/webhook/receive')
 ON CONFLICT DO NOTHING;
