@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        font-family: "DM Sans", sans-serif;
+        background-color: #0a0a0f;
+        color: #e8e8f0;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Scrollbar custom */
+    ::-webkit-scrollbar {
+        width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #1a1a24;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #2e2e3e;
+        border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #00e5a0;
+    }
+}
+
+@layer components {
+    /* ── Glassmorphism card ── */
+    .card {
+        @apply bg-ink-soft border border-ink-muted rounded-2xl;
+        backdrop-filter: blur(12px);
+    }
+
+    .card-glow {
+        @apply card;
+        box-shadow:
+            0 0 0 1px rgba(0, 229, 160, 0.1),
+            0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+        @apply bg-jade text-ink font-display font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 hover:bg-jade-dim active:scale-95
+           disabled:opacity-40 disabled:cursor-not-allowed;
+        box-shadow: 0 4px 20px rgba(0, 229, 160, 0.25);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        box-shadow: 0 4px 28px rgba(0, 229, 160, 0.45);
+    }
+
+    .btn-secondary {
+        @apply bg-ink-muted text-slate border border-ink-muted font-display font-medium
+           px-6 py-3 rounded-xl transition-all duration-200
+           hover:border-jade/30 hover:text-jade active:scale-95
+           disabled:opacity-40 disabled:cursor-not-allowed;
+    }
+
+    .btn-pay {
+        @apply font-display font-bold px-8 py-4 rounded-2xl text-ink
+           transition-all duration-200 active:scale-95
+           disabled:opacity-40 disabled:cursor-not-allowed;
+        background: linear-gradient(135deg, #f5a623, #f07b10);
+        box-shadow: 0 4px 24px rgba(245, 166, 35, 0.35);
+    }
+
+    .btn-pay:hover:not(:disabled) {
+        box-shadow: 0 4px 36px rgba(245, 166, 35, 0.55);
+        transform: translateY(-1px);
+    }
+
+    /* ── Input ── */
+    .input {
+        @apply bg-ink-muted border border-ink-muted text-white rounded-xl px-4 py-3
+           focus:outline-none focus:border-jade/60 focus:ring-1 focus:ring-jade/30
+           placeholder:text-slate-subtle transition-all duration-200 w-full;
+        font-family: "DM Sans", sans-serif;
+    }
+
+    /* ── Balance display ── */
+    .balance-text {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 600;
+    }
+
+    /* ── Status badges ── */
+    .badge-success {
+        @apply text-jade bg-jade/10 border border-jade/20 px-2.5 py-0.5 rounded-full text-xs font-medium;
+    }
+    .badge-pending {
+        @apply text-amber-pay bg-amber-pay/10 border border-amber-pay/20 px-2.5 py-0.5 rounded-full text-xs font-medium;
+    }
+    .badge-failed {
+        @apply text-danger bg-danger/10 border border-danger/20 px-2.5 py-0.5 rounded-full text-xs font-medium;
+    }
+
+    /* ── Animated gradient line ── */
+    .gradient-line {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #00e5a0, transparent);
+    }
+}
+
+@layer utilities {
+    .text-gradient {
+        background: linear-gradient(135deg, #00e5a0, #00b87e);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .glow-jade {
+        box-shadow: 0 0 20px rgba(0, 229, 160, 0.3);
+    }
+
+    /* Staggered animation delay utilities */
+    .delay-100 {
+        animation-delay: 0.1s;
+    }
+    .delay-200 {
+        animation-delay: 0.2s;
+    }
+    .delay-300 {
+        animation-delay: 0.3s;
+    }
+    .delay-400 {
+        animation-delay: 0.4s;
+    }
+}
