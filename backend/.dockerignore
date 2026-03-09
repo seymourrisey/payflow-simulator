@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# Env files — jangan ikut ke image!
+.env
+.env.*
+!.env.example
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build output & temp
+bin/
+dist/
+tmp/
+*.log
+cmd/api/tmp/
