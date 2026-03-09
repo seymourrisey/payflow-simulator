@@ -1,7 +1,7 @@
 
 # Stage 1: Builder
 
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25.4-alpine AS build
 
 # Install deps yang dibutuhkan untuk build (git, ca-certificates)
 RUN apk add --no-cache git ca-certificates tzdata
