@@ -7,7 +7,7 @@ A full-stack payment flow simulator built to demonstrate how a digital wallet an
 ## Tech Stack
 
 **Backend**
-- Go 1.25 with [Fiber v2](https://github.com/gofiber/fiber)
+- Go 1.25 with [Gin](https://github.com/gin-gonic/gin)
 - PostgreSQL via [pgx/v5](https://github.com/jackc/pgx)
 - JWT authentication (golang-jwt/jwt v4)
 - Docker (multi-stage build)
