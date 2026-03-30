@@ -3,7 +3,7 @@ package middleware
 import (
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/seymourrisey/payflow-simulator/config"
@@ -16,40 +16,46 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func Protected() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		authHeader := c.Get("Authorization")
+func Protected() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			return response.Unauthorized(c)
+			response.Unauthorized(c)
+			c.Abort()
+			return
 		}
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
 		token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(t *jwt.Token) (any, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fiber.ErrUnauthorized
+				return nil, jwt.ErrSignatureInvalid
 			}
 			return []byte(config.App.JWTSecret), nil
 		})
 
 		if err != nil || !token.Valid {
-			return response.Unauthorized(c)
+			response.Unauthorized(c)
+			c.Abort()
+			return
 		}
 
 		claims, ok := token.Claims.(*JWTClaims)
 		if !ok {
-			return response.Unauthorized(c)
+			response.Unauthorized(c)
+			c.Abort()
+			return
 		}
 
-		// Simpan user info ke context, bisa diakses handler berikutnya
-		c.Locals("userID", claims.UserID)
-		c.Locals("email", claims.Email)
+		// Store user info in context for next handler
+		c.Set("userID", claims.UserID)
+		c.Set("email", claims.Email)
 
-		return c.Next()
+		c.Next()
 	}
 }
 
-// helper ambil userId dari conext
-func GetUserID(c *fiber.Ctx) string {
-	return c.Locals("userID").(string)
+// GetUserID retrieves userID from context
+func GetUserID(c *gin.Context) string {
+	return c.GetString("userID")
 }

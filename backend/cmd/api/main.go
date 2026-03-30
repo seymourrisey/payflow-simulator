@@ -2,14 +2,11 @@ package main
 
 import (
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
+	"net/http"
+	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 
 	"github.com/seymourrisey/payflow-simulator/config"
 	"github.com/seymourrisey/payflow-simulator/internal/handler"
@@ -42,87 +39,64 @@ func main() {
 	payHandler := handler.NewPayHandler(paymentService)
 	webhookHandler := handler.NewWebhookHandler(webhookService)
 
-	// 5. Setup Fiber
-	app := fiber.New(fiber.Config{
-		AppName:      "payflow-simulator v1.0",
-		ErrorHandler: customErrorHandler,
-	})
+	// 5. Setup Gin (gin.Default() includes logger and recovery middleware)
+	router := gin.Default()
 
-	// 6. Global middlewares
-	app.Use(recover.New())
-	app.Use(logger.New(logger.Config{
-		Format: "[${time}] ${method} ${path} → ${status} (${latency})\n",
-	}))
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: config.App.AllowOrigins,
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Authorization, X-Idempotency-Key",
+	// 6. Global middleware - CORS
+	// Parse AllowOrigins dari string comma-separated
+	allowOrigins := []string{}
+	for _, origin := range strings.Split(config.App.AllowOrigins, ",") {
+		allowOrigins = append(allowOrigins, strings.TrimSpace(origin))
+	}
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins: allowOrigins,
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
+		AllowHeaders: []string{"Origin", "Content-Type", "Authorization", "X-Idempotency-Key"},
 	}))
 
 	// 7. Routes
-	api := app.Group("/api")
+	api := router.Group("/api")
 
 	// Public routes
 	auth := api.Group("/auth")
-	auth.Post("/register", authHandler.Register)
-	auth.Post("/login", authHandler.Login)
+	auth.POST("/register", authHandler.Register)
+	auth.POST("/login", authHandler.Login)
 
 	// Protected routes (JWT required)
-	protected := api.Group("/", middleware.Protected())
+	protected := api.Group("", middleware.Protected())
 
 	// Logout — protected karena butuh verifikasi token dulu
-	protected.Post("/auth/logout", authHandler.Logout)
+	protected.POST("/auth/logout", authHandler.Logout)
 
 	wallet := protected.Group("/wallet")
-	wallet.Get("/", payHandler.GetWallet)
-	wallet.Post("/topup", payHandler.TopUp)
+	wallet.GET("/", payHandler.GetWallet)
+	wallet.POST("/topup", payHandler.TopUp)
 
 	payment := protected.Group("/payment")
-	payment.Post("/qr", payHandler.GenerateQR)
-	payment.Post("/pay", payHandler.Pay)
+	payment.POST("/qr", payHandler.GenerateQR)
+	payment.POST("/pay", payHandler.Pay)
 
-	protected.Get("/transactions", payHandler.GetHistory)
+	protected.GET("/transactions", payHandler.GetHistory)
 
 	// Webhook panel routes
 	webhooks := protected.Group("/webhooks")
-	webhooks.Get("/", webhookHandler.GetLogs)
-	webhooks.Get("/stats", webhookHandler.GetStats)
-	webhooks.Get("/merchants", webhookHandler.GetMerchants)
+	webhooks.GET("/", webhookHandler.GetLogs)
+	webhooks.GET("/stats", webhookHandler.GetStats)
+	webhooks.GET("/merchants", webhookHandler.GetMerchants)
 
 	// ── Built-in Webhook Receiver (PUBLIC - tidak perlu JWT) ──
 	// Merchant webhook URL diarahkan ke sini untuk local testing
-	app.Post("/webhook/receive", webhookHandler.Receive)
+	router.POST("/webhook/receive", webhookHandler.Receive)
 
 	// Health check
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "ok", "app": "payflow-simulator"})
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "app": "payflow-simulator"})
 	})
 
-	// 8. Start server (graceful shutdown)
-	go func() {
-		log.Printf("(˶˃ᆺ˂˶) PAYFLOW SIMULATOR running on :%s [%s]", config.App.AppPort, config.App.AppEnv)
-		if err := app.Listen(":" + config.App.AppPort); err != nil {
-			log.Fatalf("Server error: %v", err)
-		}
-	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
-
-	log.Println("Shutting down gracefully...")
-	if err := app.Shutdown(); err != nil {
-		log.Printf("Error during shutdown: %v", err)
+	// 8. Start server
+	log.Printf("(˶˃ᆺ˂˶) PAYFLOW SIMULATOR running on :%s [%s]", config.App.AppPort, config.App.AppEnv)
+	if err := router.Run(":" + config.App.AppPort); err != nil {
+		log.Fatalf("Server error: %v", err)
 	}
-}
-
-func customErrorHandler(c *fiber.Ctx, err error) error {
-	code := fiber.StatusInternalServerError
-	if e, ok := err.(*fiber.Error); ok {
-		code = e.Code
-	}
-	return c.Status(code).JSON(fiber.Map{
-		"success": false,
-		"error":   err.Error(),
-	})
 }

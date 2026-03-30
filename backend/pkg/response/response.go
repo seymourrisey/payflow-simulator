@@ -1,6 +1,10 @@
 package response
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
 
 type APIResponse struct {
 	Success bool   `json:"success"`
@@ -9,55 +13,55 @@ type APIResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-func OK(c *fiber.Ctx, message string, data any) error {
-	return c.Status(fiber.StatusOK).JSON(APIResponse{
+func OK(c *gin.Context, message string, data any) {
+	c.JSON(http.StatusOK, APIResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
 	})
 }
 
-func Created(c *fiber.Ctx, message string, data any) error {
-	return c.Status(fiber.StatusCreated).JSON(APIResponse{
+func Created(c *gin.Context, message string, data any) {
+	c.JSON(http.StatusCreated, APIResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
 	})
 }
 
-func BadRequest(c *fiber.Ctx, err string) error {
-	return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+func BadRequest(c *gin.Context, err string) {
+	c.JSON(http.StatusBadRequest, APIResponse{
 		Success: false,
 		Message: "Bad request",
 		Error:   err,
 	})
 }
 
-func Unauthorized(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+func Unauthorized(c *gin.Context) {
+	c.JSON(http.StatusUnauthorized, APIResponse{
 		Success: false,
 		Message: "Unauthorized",
 		Error:   "Invalid or expired token",
 	})
 }
 
-func NotFound(c *fiber.Ctx, resource string) error {
-	return c.Status(fiber.StatusNotFound).JSON(APIResponse{
+func NotFound(c *gin.Context, resource string) {
+	c.JSON(http.StatusNotFound, APIResponse{
 		Success: false,
 		Message: resource + " not found",
 	})
 }
 
-func InternalError(c *fiber.Ctx, err error) error {
-	return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+func InternalError(c *gin.Context, err error) {
+	c.JSON(http.StatusInternalServerError, APIResponse{
 		Success: false,
 		Message: "Internal server error",
 		Error:   err.Error(),
 	})
 }
 
-func Conflict(c *fiber.Ctx, err string) error {
-	return c.Status(fiber.StatusConflict).JSON(APIResponse{
+func Conflict(c *gin.Context, err string) {
+	c.JSON(http.StatusConflict, APIResponse{
 		Success: false,
 		Message: "Conflict",
 		Error:   err,
